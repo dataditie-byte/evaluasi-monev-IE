@@ -761,18 +761,18 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
 });
 $('logout').onclick=()=>{
   if(!confirm('Keluar dari ruang evaluasi?'))return;
+
   key='';
   try{
     localStorage.removeItem('mieAdminKey');
     localStorage.removeItem('mie2026_summary_v1');
   }catch(_e){}
-  $('app').classList.add('hidden');
-  $('accessPanel').style.display='';
-  $('key').value='';
-  $('accessMsg').textContent='Anda telah keluar dari ruang evaluasi.';
-  $('accessMsg').className='small success';
-  current=null; editEvalId=''; editStdId='';
-  window.scrollTo({top:0,behavior:'smooth'});
+
+  current=null;
+  editEvalId='';
+  editStdId='';
+
+  window.location.href='index.html';
 };
 $('openBtn').onclick=async()=>{
   key=clean($('key').value);
