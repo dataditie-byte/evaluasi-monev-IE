@@ -738,6 +738,7 @@ function _docxTextRuns(text){
   const parts=String(text||'').split(/\n/);
   return parts.map((x,i)=>(i?' <w:br/>':'')+`<w:r><w:t xml:space="preserve">${_xml(x)}</w:t></w:r>`).join('');
 }
+/* DOCX_PATCH_V1.0.3 — generator-only patch */
 function _htmlToDocx(htmlText){
   const doc=new DOMParser().parseFromString(htmlText,'text/html');
   const out=[];
@@ -783,12 +784,23 @@ function _htmlToDocx(htmlText){
   return _zipStore(files);
 }
 function downloadReport(htmlText,filename){
-  const safeName=String(filename||'Laporan_IE_2026.docx').replace(/\.doc$/i,'.docx').replace(/\.docx$/i,'')+'.docx';
+  // ISOLATED DOCX GENERATOR — tidak menyentuh API/data/GIS/login/evaluasi.
+  // Paksa nama file menjadi .docx, termasuk bila pemanggil lama masih mengirim .doc.
+  const base=String(filename||'Laporan_IE_2026')
+    .replace(/\.(docx?|html?|rtf)$/i,'')
+    .replace(/[\\/:*?\"<>|]+/g,'_')
+    .trim() || 'Laporan_IE_2026';
+  const safeName=base+'.docx';
   const bytes=_htmlToDocx(htmlText);
   const blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
   const u=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=u;a.download=safeName;document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(u),1500);
+  a.href=u;
+  a.download=safeName;
+  a.setAttribute('download',safeName);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),3000);
 }
 function printReport(htmlText){
   const w=window.open('','_blank','noopener,noreferrer');

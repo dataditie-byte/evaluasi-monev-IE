@@ -3,7 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="app-version" content="Evaluasi Dit IE V2.4">
+<meta name="app-version" content="Sistem Monitoring IE 2026 V1.0.0">
+<meta name="theme-color" content="#0b376a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Monitoring IE 2026">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <title>Sistem Monitoring Pelaksanaan Informasi &amp; Edukasi Tahun Anggaran 2026</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
@@ -52,8 +58,8 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;bor
 </head>
 <body>
 <header><div class="head">
-<div class="brand"><img src="assets/logo-bnn.png" onerror="this.style.display='none'"><div><h1>DEPUTI BIDANG PENCEGAHAN</h1><p>Direktorat Informasi &amp; Edukasi BNN</p></div></div>
-<img class="ab" src="assets/logo-ananda-bersinar.png" onerror="this.style.display='none'">
+<div class="brand"><img src="assets/logo-bnn.webp" onerror="this.style.display='none'"><div><h1>DEPUTI BIDANG PENCEGAHAN</h1><p>Direktorat Informasi &amp; Edukasi BNN</p></div></div>
+<img class="ab" src="assets/ananda-bersinar.webp" onerror="this.style.display='none'">
 </div></header>
 <section class="hero"><div class="hero-inner"><h2>Sistem Monitoring Pelaksanaan Informasi &amp; Edukasi Tahun Anggaran 2026</h2><p>Peta Monitoring · Analisis · Temuan · Rekomendasi · Tindak Lanjut</p></div></section>
 
@@ -116,8 +122,9 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;bor
 </section>
 </section>
 </main>
-<footer class="footer"><div class="footer-inner"><img class="footer-logo" src="assets/logo-bnn.png"><div><strong>Direktorat Informasi &amp; Edukasi BNN</strong><br>Monitoring IE 2026</div></div></footer>
+<footer class="footer"><div class="footer-inner"><img class="footer-logo" src="assets/logo-bnn.webp"><div><strong>Direktorat Informasi &amp; Edukasi BNN</strong><br>Monitoring IE 2026</div></div></footer>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="app_final.js"></script>
+<script src="app_final.js?v=1.0.3"></script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(e=>console.warn("PWA service worker:",e)));}</script>
 </body>
 </html>
