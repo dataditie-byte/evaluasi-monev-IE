@@ -255,10 +255,90 @@ function statusCardFilter(r){
   return true;
 }
 
+
+function _recordSatkerKey(r){
+  return String(r?.kode_satker||r?.satker_id||r?.nama_satker||'').trim().toLowerCase();
+}
+function _recordTime(r){
+  const vals=[r?.updated_at,r?.created_at,r?.timestamp,r?.submitted_at,r?.waktu_pengisian,r?.tanggal_pengisian];
+  for(const v of vals){
+    const t=Date.parse(String(v||''));
+    if(Number.isFinite(t)) return t;
+  }
+  return 0;
+}
+function _groupRecordsBySatker(records){
+  const groups={};
+  (records||[]).forEach(r=>{
+    const k=_recordSatkerKey(r);
+    if(!k)return;
+    (groups[k]??=[]).push(r);
+  });
+  Object.values(groups).forEach(list=>list.sort((a,b)=>{
+    const tb=_recordTime(b), ta=_recordTime(a);
+    if(tb!==ta)return tb-ta;
+    return String(b?.pengisian_id||'').localeCompare(String(a?.pengisian_id||''));
+  }));
+  return groups;
+}
+function _latestRecordForSatker(list){
+  return (list||[])[0]||null;
+}
+function _inputCountForRecord(r){
+  const k=_recordSatkerKey(r);
+  if(!k)return 0;
+  const list=_groupRecordsBySatker(data?.records||[])[k]||[];
+  return list.length;
+}
+function _historyRecordsForSatker(r){
+  const k=_recordSatkerKey(r);
+  return (_groupRecordsBySatker(data?.records||[])[k]||[]);
+}
+function _formatRecordDate(r){
+  const t=_recordTime(r);
+  if(!t)return 'Tanggal tidak tersedia';
+  try{return new Date(t).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(_e){return String(r?.updated_at||r?.created_at||'Tanggal tidak tersedia')}
+}
+function _historyStatusLabel(r,idx){
+  const list=_historyRecordsForSatker(r);
+  return idx===0 && list.length>1 ? 'Input terbaru' : (list.length>1 ? 'Histori' : 'Input');
+}
+function _showSubmissionHistory(pid){
+  const base=(data?.records||[]).find(x=>String(x.pengisian_id)===String(pid));
+  if(!base)return;
+  const list=_historyRecordsForSatker(base);
+  const title=esc(base.nama_satker||'Satker');
+  let box=document.getElementById('submissionHistoryModal');
+  if(!box){
+    box=document.createElement('div');
+    box.id='submissionHistoryModal';
+    box.className='history-modal';
+    document.body.appendChild(box);
+  }
+  box.innerHTML=`<div class="history-backdrop" data-history-close></div>
+    <div class="history-dialog" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+      <div class="history-head"><div><h3 id="historyTitle" style="margin:0">Histori Pengisian</h3><div class="small muted">${title} · ${list.length} input</div></div><button class="btn secondary" type="button" data-history-close>Tutup</button></div>
+      <div class="history-note">Semua pengisian tetap dipertahankan. Sistem hanya menampilkan histori dan tidak menghapus atau menolak input. Belum ada data yang ditetapkan sebagai basis evaluasi dari halaman ini.</div>
+      <div class="history-list">
+        ${list.map((x,i)=>`<div class="history-row">
+          <div><div class="history-main"><b>Input #${list.length-i}</b><span class="history-tag">${esc(_historyStatusLabel(x,i))}</span></div>
+          <div class="small muted">${esc(_formatRecordDate(x))} · ${esc(x.nomor_pengisian||x.pengisian_id||'ID tidak tersedia')}</div>
+          <div class="small">${esc(displayStatus(x.status))}</div></div>
+          <button class="btn secondary history-open" type="button" data-pid="${esc(x.pengisian_id)}">Lihat Data</button>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  box.classList.add('show');
+  box.querySelectorAll('[data-history-close]').forEach(el=>el.onclick=()=>box.classList.remove('show'));
+  box.querySelectorAll('.history-open').forEach(el=>el.onclick=()=>{
+    box.classList.remove('show');
+    showDetail(el.dataset.pid);
+  });
+}
+
 function renderMetrics(){
-  const all=data?.records||[], unique={};
-  all.forEach(r=>{const k=String(r.kode_satker||r.satker_id||r.nama_satker||'').trim().toLowerCase();if(k)unique[k]=r});
-  const records=Object.values(unique);
+  const all=data?.records||[], groups=_groupRecordsBySatker(all);
+  const records=Object.values(groups).map(_latestRecordForSatker).filter(Boolean);
   const selesai=records.filter(r=>String(r.status||'').toUpperCase()==='SELESAI').length;
   const belumSelesai=records.filter(r=>String(r.status||'').toUpperCase()!=='SELESAI').length;
   const totalSatker=216, belumMengisi=Math.max(0,totalSatker-records.length);
@@ -287,33 +367,49 @@ function cardFilter(r){
 }
 function filteredRows(){
   const q=clean($('search').value).toLowerCase(),f=clean($('statusFilter').value).toUpperCase();
-  return(data.records||[]).filter(x=>{
+  const groups=_groupRecordsBySatker(data?.records||[]);
+  return Object.values(groups).map(_latestRecordForSatker).filter(Boolean).filter(x=>{
     if(!cardFilter(x))return false;
     const p=priorityFor(x), st=String(x.status||'').toUpperCase();
     const ok=!f||(f==='SELESAI'&&st==='SELESAI')||(f==='DRAFT'&&st!=='SELESAI')||(f==='PERLU_MENGISI'&&false)||(f==='PERLU_PENDAMPINGAN'&&['PENDAMPINGAN','MONITORING','SEDANG'].includes(p))||(f==='PERLU_PERHATIAN'&&['ATENSI','TINGGI'].includes(p));
     return ok&&(!q||[x.nama_satker,x.nomor_pengisian,x.kode_satker].some(v=>String(v||'').toLowerCase().includes(q)));
   });
 }
-function renderList(){const rows=filteredRows();$('listHint').textContent=filterCard?'Filter aktif: '+({selesai:'Sudah Mengisi',belum_selesai:'Belum Selesai',belum_mengisi:'Belum Mengisi',pendampingan:'Perlu Pendampingan',perhatian:'Perlu Perhatian'}[filterCard]||''):'Klik kartu atau titik peta untuk memfilter';$('satkerList').innerHTML=rows.map(x=>`<div class="satrow" data-pid="${esc(x.pengisian_id)}"><b>${esc(x.nama_satker||'—')}</b><span class="small muted">${esc(x.kode_satker||'')} · ${esc(x.nomor_pengisian||'')}</span><br><span class="badge ${statusClass(x.status)}">${esc(displayStatus(x.status))}</span></div>`).join('')||'<div class="muted">Tidak ada Satker sesuai filter.</div>';document.querySelectorAll('.satrow').forEach(el=>el.onclick=()=>showDetail(el.dataset.pid))}
+function renderList(){
+  const rows=filteredRows();
+  $('listHint').textContent=filterCard?'Filter aktif: '+({selesai:'Sudah Mengisi',belum_selesai:'Belum Selesai',belum_mengisi:'Belum Mengisi',pendampingan:'Perlu Pendampingan',perhatian:'Perlu Perhatian'}[filterCard]||''):'Klik kartu atau titik peta untuk memfilter';
+  $('satkerList').innerHTML=rows.map(x=>{
+    const count=_inputCountForRecord(x);
+    return `<div class="satrow" data-pid="${esc(x.pengisian_id)}"><b>${esc(x.nama_satker||'—')}</b><span class="small muted">${esc(x.kode_satker||'')} · ${esc(x.nomor_pengisian||'')}</span><br><span class="badge ${statusClass(x.status)}">${esc(displayStatus(x.status))}</span> ${count>1?`<span class="badge warn">${count} input</span>`:''}</div>`;
+  }).join('')||'<div class="muted">Tidak ada Satker sesuai filter.</div>';
+  document.querySelectorAll('.satrow').forEach(el=>el.onclick=()=>showDetail(el.dataset.pid));
+}
 function renderTable(){
   const rows=filteredRows();
-  $('satkerBody').innerHTML=rows.map(x=>`<tr>
-    <td><b>${esc(x.nama_satker||'—')}</b><br><span class="small muted">${esc(x.kode_satker||'')}</span></td>
-    <td><span class="badge ${statusClass(x.status)}">${esc(displayStatus(x.status))}</span></td>
-    <td>${x.saved?.A?'<span class="badge ok">Tersedia</span>':'<span class="badge warn">Belum ada</span>'}</td>
-    <td>${x.saved?.B?'<span class="badge ok">Tersedia</span>':'<span class="badge warn">Belum ada</span>'}</td>
-    <td>${x.saved?.C?'<span class="badge ok">Tersedia</span>':'<span class="badge warn">Belum ada</span>'}</td>
-    <td><div class="action-group">
-      <button class="btn secondary actionOpen" data-pid="${esc(x.pengisian_id)}">Buka</button>
-      <button class="btn secondary actionEval" data-pid="${esc(x.pengisian_id)}">Analisis &amp; Rekomendasi</button>
-      <button class="btn danger actionDelete" data-pid="${esc(x.pengisian_id)}">Hapus</button>
-    </div></td>
-  </tr>`).join('')||'<tr><td colspan="6" class="muted">Tidak ada data.</td></tr>';
+  $('satkerBody').innerHTML=rows.map(x=>{
+    const count=_inputCountForRecord(x);
+    const multi=count>1;
+    return `<tr>
+      <td><b>${esc(x.nama_satker||'—')}</b><br><span class="small muted">${esc(x.kode_satker||'')}</span></td>
+      <td>${multi?`<button class="history-count" type="button" data-history="${esc(x.pengisian_id)}">${count} input</button>`:'<span class="small muted">1 input'}</td>
+      <td><span class="badge ${statusClass(x.status)}">${esc(displayStatus(x.status))}</span></td>
+      <td>${x.saved?.A?'<span class="badge ok">Tersedia</span>':'<span class="badge warn">Belum ada</span>'}</td>
+      <td>${x.saved?.B?'<span class="badge ok">Tersedia</span>':'<span class="badge warn">Belum ada</span>'}</td>
+      <td>${x.saved?.C?'<span class="badge ok">Tersedia</span>':'<span class="badge warn">Belum ada</span>'}</td>
+      <td><div class="action-group">
+        <button class="btn secondary actionOpen" data-pid="${esc(x.pengisian_id)}">Buka</button>
+        <button class="btn secondary actionEval" data-pid="${esc(x.pengisian_id)}">Analisis &amp; Rekomendasi</button>
+        ${multi?`<button class="btn secondary actionHistory" data-pid="${esc(x.pengisian_id)}">Histori</button>`:''}
+        <button class="btn danger actionDelete" data-pid="${esc(x.pengisian_id)}">Hapus</button>
+      </div></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="7" class="muted">Tidak ada data.</td></tr>';
+  document.querySelectorAll('.history-count,.actionHistory').forEach(el=>el.onclick=()=>_showSubmissionHistory(el.dataset.history||el.dataset.pid));
   document.querySelectorAll('.actionOpen').forEach(el=>el.onclick=()=>showDetail(el.dataset.pid));
   document.querySelectorAll('.actionEval').forEach(el=>el.onclick=()=>{
-  showDetail(el.dataset.pid);
-  setTimeout(()=>document.querySelector('#detailData .analysis-item')?.scrollIntoView({behavior:'smooth',block:'start'}),180);
-});
+    showDetail(el.dataset.pid);
+    setTimeout(()=>document.querySelector('#detailData .analysis-item')?.scrollIntoView({behavior:'smooth',block:'start'}),180);
+  });
   document.querySelectorAll('.actionDelete').forEach(el=>el.onclick=()=>deleteMonitoring(el.dataset.pid));
 }
 function renderAll(){renderMetrics();renderList();renderTable();renderAnalysis();if(current)showDetail(current.pengisian_id)}
@@ -400,8 +496,10 @@ function showDetail(pid){
   $('detailPanel').classList.add('show');
   $('detailTitle').textContent=current.nama_satker||'Satker';
   $('detailMeta').textContent=`${current.kode_satker||'—'} · ${current.nomor_pengisian||'—'} · ${friendlyStatus(current.status)}`;
+  const _detailCount=_inputCountForRecord(current);
+  const _historyButton=_detailCount>1?`<button class="btn secondary" type="button" onclick="_showSubmissionHistory('${esc(current.pengisian_id)}')">🗂 ${_detailCount} Input · Lihat Histori</button>`:'';
   $('detailData').innerHTML=
-    `<div class="detail-intro"><strong>Ringkasan Monitoring dan Analisis</strong><span>Data berikut menjadi dasar telaah dan rekomendasi untuk Satker.</span></div>`+
+    `<div class="detail-intro"><strong>Ringkasan Monitoring dan Analisis</strong><span>Data berikut menjadi dasar telaah dan rekomendasi untuk Satker.</span>${_historyButton}</div>`+
     block(FRIENDLY_SECTION.A,current.A)+block(FRIENDLY_SECTION.B,current.B)+block(FRIENDLY_SECTION.C,current.C)+
     selectedAnalysisHtml(current.pengisian_id);
 }

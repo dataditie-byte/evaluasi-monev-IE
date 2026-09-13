@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="app-version" content="Sistem Monitoring IE 2026 V1.0.0">
+<meta name="app-version" content="Sistem Monitoring IE 2026 V1.0.5">
 <meta name="theme-color" content="#0b376a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -54,6 +54,18 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;bor
 
 .detail-note{margin:14px 0;padding:10px 12px;border-left:4px solid #0b75d1;background:#f5f9fd;border-radius:6px;color:#486786;font-size:13px}
 .comparison-head{margin-top:14px}.comparison-head h3{margin:0 0 4px}.comparison-table-wrap{overflow:auto;margin-top:8px}.comparison-table{width:100%;border-collapse:collapse;min-width:760px;background:#fff}.comparison-table th,.comparison-table td{padding:9px 10px;border-bottom:1px solid #e3ebf3;text-align:left}.comparison-table th{background:#f3f7fb;color:#173b69;font-size:12px}.comparison-table td{font-size:13px}
+
+.history-count{border:0;background:#fff4d6;color:#9a6200;border-radius:999px;padding:5px 10px;font-weight:700;cursor:pointer}
+.history-modal{display:none;position:fixed;inset:0;z-index:9999}
+.history-modal.show{display:block}
+.history-backdrop{position:absolute;inset:0;background:rgba(10,32,55,.45)}
+.history-dialog{position:relative;width:min(760px,calc(100% - 28px));max-height:calc(100vh - 40px);overflow:auto;margin:20px auto;background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.25);padding:18px}
+.history-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid #e3ebf3;padding-bottom:12px}
+.history-note{margin:12px 0;padding:10px 12px;border-left:4px solid #0b75d1;background:#f5f9fd;color:#486786;font-size:12px;border-radius:6px}
+.history-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid #edf2f7}
+.history-main{display:flex;gap:8px;align-items:center}
+.history-tag{font-size:11px;padding:3px 7px;border-radius:999px;background:#eaf3ff;color:#1769aa}
+@media(max-width:700px){.history-dialog{margin:10px auto;max-height:calc(100vh - 20px)}.history-row{align-items:flex-start;flex-direction:column}.history-open{width:100%}}
 </style>
 </head>
 <body>
@@ -95,7 +107,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;bor
 
 <section class="panel">
 <div class="tabs"><button class="tab active" data-tab="monitoring">Monitoring</button><button class="tab" data-tab="analisis">Analisis & Rekomendasi</button></div>
-<div id="tab-monitoring"><p class="muted small">Data monitoring Satker berasal dari pengisian Satker dan ditampilkan sebagai sumber evaluasi. Data sumber tidak diubah atau dihapus dari halaman ini.</p><div style="overflow:auto"><table><thead><tr><th>Satker</th><th>Status</th><th>Bagian Umum</th><th>Bagian RTS</th><th>Bagian Penyebaran Informasi &amp; Edukasi</th><th>Aksi</th></tr></thead><tbody id="satkerBody"></tbody></table></div></div>
+<div id="tab-monitoring"><p class="muted small">Data monitoring Satker berasal dari pengisian Satker dan ditampilkan sebagai sumber evaluasi. Data sumber tidak diubah atau dihapus dari halaman ini.</p><div style="overflow:auto"><table><thead><tr><th>Satker</th><th>Input</th><th>Status</th><th>Bagian Umum</th><th>Bagian RTS</th><th>Bagian Penyebaran Informasi &amp; Edukasi</th><th>Aksi</th></tr></thead><tbody id="satkerBody"></tbody></table></div></div>
 
 <div id="tab-analisis" class="hidden">
   <div class="analysis-intro">
@@ -124,7 +136,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;bor
 </main>
 <footer class="footer"><div class="footer-inner"><img class="footer-logo" src="assets/logo-bnn.webp"><div><strong>Direktorat Informasi &amp; Edukasi BNN</strong><br>Monitoring IE 2026</div></div></footer>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="app_final.js?v=1.0.2"></script>
+<script src="app_final.js?v=1.0.5"></script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(e=>console.warn("PWA service worker:",e)));}</script>
 </body>
 </html>
