@@ -549,6 +549,21 @@ function localAnalysisForRecord(r){
   const has=v=>String(v??'').trim()!=='';
   const yes=v=>/^(ya|iya|sudah|ada|tersedia|sesuai|terpenuhi|baik|dilaksanakan|memadai)$/i.test(String(v??'').trim());
 
+  // RTS: Surat Pelaksanaan PN T.A. 2026 menetapkan 10 peserta pelatihan.
+  const rtsParticipants=n(B.b05b);
+  if(rtsParticipants!==null){
+    const target=10, gap=rtsParticipants-target, cap=Math.round(rtsParticipants/target*100);
+    out.push({
+      analysis_id:'LOCAL-'+r.pengisian_id+'-RTS10',pengisian_id:r.pengisian_id,
+      nama_satker:r.nama_satker,fokus:'RTS – Peserta Pelatihan',
+      analisis:`Peserta pelatihan RTS tercatat ${num(rtsParticipants)} orang dibandingkan acuan ${num(target)} orang dalam Surat Pelaksanaan PN T.A. 2026 (${cap}%).`,
+      gap:gap>=0?`Lebih ${num(gap)} orang dari acuan.`:`Kurang ${num(Math.abs(gap))} orang dari acuan.`,
+      dasar_juknis:'Surat Pelaksanaan Program PN T.A. 2026: jumlah peserta kegiatan pelatihan 10 orang, 1 orang mewakili 1 Komunitas Sekolah.',
+      rekomendasi:gap>=0?'Pertahankan keterwakilan peserta dan pastikan keterkaitan peserta dengan komunitas sekolah terdokumentasi.':'Lengkapi peserta pelatihan hingga minimal 10 orang dengan memperhatikan keterwakilan komunitas sekolah.',
+      prioritas:gap<0?(cap<75?'TINGGI':'SEDANG'):'RENDAH',status:gap<0?'BELUM MEMENUHI':'SESUAI ACUAN'
+    });
+  }
+
   // RTS: 30 students per school dampingan when both quantities exist.
   const schools=n(B.b01a), students=n(B.b06d);
   if(schools!==null && schools>0 && students!==null){
@@ -558,7 +573,7 @@ function localAnalysisForRecord(r){
       nama_satker:r.nama_satker,fokus:'RTS – Jangkauan Siswa',
       analisis:`Terdapat ${num(students)} siswa yang dijangkau dari acuan minimum ${num(target)} siswa untuk ${num(schools)} sekolah dampingan (${cap}%).`,
       gap:gap>=0?`Lebih ${num(gap)} siswa dari acuan minimum.`:`Kurang ${num(Math.abs(gap))} siswa dari acuan minimum.`,
-      dasar_juknis:'Juknis RTS: jumlah siswa yang dijangkau minimal 30 siswa pada masing-masing sekolah dampingan.',
+      dasar_juknis:'Juknis RTS dan Surat Pelaksanaan Program PN T.A. 2026: jumlah siswa yang mendapatkan pengimbasan/jangkauan RTL minimal 30 orang.',
       rekomendasi:gap>=0?'Pertahankan pelaksanaan pengimbasan dan dokumentasikan jangkauan per sekolah.':'Prioritaskan pendampingan pada sekolah yang jangkauannya belum mencapai acuan minimum.',
       prioritas:gap<0?(cap<75?'TINGGI':'SEDANG'):'RENDAH',status:gap<0?'BELUM MEMENUHI':'SESUAI ACUAN'
     });
@@ -648,7 +663,7 @@ function localAnalysisForRecord(r){
 }
 
 
-/* === Executive narrative engine: 15 deterministic patterns ===
+/* === Executive narrative engine: 15 deterministic patterns + data evidence enrichment ===
    Scope: narrative generation only. No API/data-loading/login/GIS logic is changed. */
 const NARRATIVE_PATTERNS={
   1:'Sangat Baik / Memenuhi Konsisten',
@@ -718,7 +733,94 @@ function _findingsForSection(code,obj){
   }
   return out;
 }
-function _dynamicNarrative(code,title,st,obj,pattern,findings,exists){
+function _pctChange(current, previous){
+  const c=_num(current), p=_num(previous);
+  if(c===null || p===null || p===0) return null;
+  return ((c-p)/Math.abs(p))*100;
+}
+function _trendSentence(label,current,previous){
+  const c=_num(current), p=_num(previous);
+  const pct=_pctChange(c,p);
+  if(c===null || p===null || pct===null) return '';
+  if(pct>0.01) return `${label} meningkat dari ${num(p)} menjadi ${num(c)}, bertambah ${num(c-p)} atau ${Math.abs(pct).toFixed(1).replace('.',',')}% dibandingkan periode sebelumnya.`;
+  if(pct<-0.01) return `${label} menurun dari ${num(p)} menjadi ${num(c)}, berkurang ${num(Math.abs(c-p))} atau ${Math.abs(pct).toFixed(1).replace('.',',')}% dibandingkan periode sebelumnya.`;
+  return `${label} relatif stabil pada ${num(c)} dibandingkan periode sebelumnya (${num(p)}).`;
+}
+function _latestPreviousRecord(r){
+  const list=_historyRecordsForSatker(r);
+  if(!list.length) return null;
+  const idx=list.findIndex(x=>String(x.pengisian_id)===String(r.pengisian_id));
+  return idx>=0 ? (list[idx+1]||null) : (list[1]||null);
+}
+function _evidenceFacts(r,code){
+  const obj=(r?.[code]&&typeof r[code]==='object')?r[code]:{};
+  const prev=_latestPreviousRecord(r);
+  const po=(prev?.[code]&&typeof prev[code]==='object')?prev[code]:{};
+  const facts=[];
+  if(code==='A'){
+    const sdm=_num(obj.a1), kebutuhan=_num(obj.a3);
+    if(sdm!==null) facts.push(`Jumlah SDM JF Penyuluh tercatat ${num(sdm)} orang.`);
+    if(sdm!==null && kebutuhan!==null && kebutuhan>0){
+      const pct=Math.min(100,(sdm/kebutuhan)*100);
+      facts.push(`Ketersediaan SDM berada pada ${pct.toFixed(1).replace('.',',')}% dari kebutuhan ${num(kebutuhan)} orang.`);
+    }
+    if(_hasVal(obj.a4)) facts.push(`Kecukupan SDM dilaporkan "${String(obj.a4).trim()}".`);
+    if(_hasVal(obj.a6)) facts.push(`Kompetensi yang perlu diperkuat: ${String(obj.a6).trim()}.`);
+    if(_hasVal(obj.a11)) facts.push(`Dukungan pemangku kepentingan: ${String(obj.a11).trim()}.`);
+    if(_hasVal(obj.a27)) facts.push(`Kendala umum yang tercatat: ${String(obj.a27).trim()}.`);
+  }
+  if(code==='B'){
+    const schools=_num(obj.b01a), done=_num(obj.b01b), ready=_num(obj.b01c);
+    const trainings=_num(obj.b05a), participants=_num(obj.b05b), students=_num(obj.b06d);
+    if(schools!==null) facts.push(`Terdapat ${num(schools)} sekolah sasaran/calon RTS.`);
+    if(done!==null && schools!==null && schools>0) facts.push(`${num(done)} sekolah telah melaksanakan RTS atau ${((done/schools)*100).toFixed(1).replace('.',',')}% dari sekolah sasaran.`);
+    if(ready!==null && schools!==null && schools>0) facts.push(`${num(ready)} sekolah telah dinilai kesiapan atau ${((ready/schools)*100).toFixed(1).replace('.',',')}% dari sekolah sasaran.`);
+    if(trainings!==null) facts.push(`Jumlah pelatihan/pembekalan RTS tercatat ${num(trainings)} kegiatan.`);
+    if(participants!==null){
+      const gap10=participants-10;
+      facts.push(`Peserta pelatihan tercatat ${num(participants)} orang, dengan acuan Surat Pelaksanaan PN T.A. 2026 sebesar 10 orang${gap10>=0?` (lebih ${num(gap10)} orang dari acuan)`: ` (masih kurang ${num(Math.abs(gap10))} orang dari acuan)`}.`);
+    }
+    if(students!==null && schools!==null && schools>0){
+      const target=schools*30, gap=students-target;
+      facts.push(`Jangkauan pengimbasan/RTL tercatat ${num(students)} siswa dari acuan ${num(target)} siswa untuk ${num(schools)} sekolah (${((students/target)*100).toFixed(1).replace('.',',')}%); ${gap>=0?`lebih ${num(gap)} siswa`: `masih kurang ${num(Math.abs(gap))} siswa`}.`);
+    }
+    const tr=_trendSentence('Jangkauan siswa RTS',students,_num(po.b06d));
+    if(tr) facts.push(tr);
+    if(_hasVal(obj.b09a)) facts.push(`Kendala utama RTS: ${String(obj.b09a).trim()}.`);
+  }
+  if(code==='C'){
+    const faceTarget=_num(obj.c01b), facePresent=_num(obj.c01c);
+    const campTarget=_num(obj.c02b), campReach=_num(obj.c02c);
+    const mediaActs=_num(obj.c03a), mediaReach=_num(obj.c03b);
+    const contents=_num(obj.c04a), views=_num(obj.c04c), reach=_num(obj.c04d), engagement=_num(obj.c04e);
+    if(faceTarget!==null && facePresent!==null){
+      const pct=(facePresent/faceTarget)*100;
+      facts.push(`Kegiatan tatap muka mencatat ${num(facePresent)} peserta hadir dari target ${num(faceTarget)} (${pct.toFixed(1).replace('.',',')}%).`);
+      const tr=_trendSentence('Peserta hadir tatap muka',facePresent,_num(po.c01c));
+      if(tr) facts.push(tr);
+    }
+    if(campTarget!==null && campReach!==null){
+      facts.push(`Kegiatan kampanye mencatat jangkauan ${num(campReach)} dari target ${num(campTarget)} (${((campReach/campTarget)*100).toFixed(1).replace('.',',')}%).`);
+    }
+    if(mediaActs!==null) facts.push(`Aktivitas/publikasi media tercatat ${num(mediaActs)} kegiatan.`);
+    if(mediaReach!==null) facts.push(`Estimasi reach/audiens media tercatat ${num(mediaReach)}.`);
+    if(contents!==null) facts.push(`Konten/publikasi digital tercatat ${num(contents)} konten.`);
+    if(views!==null) facts.push(`Total views/impressions tercatat ${num(views)}.`);
+    if(reach!==null) facts.push(`Total reach digital tercatat ${num(reach)}.`);
+    if(engagement!==null) facts.push(`Total engagement/interaksi tercatat ${num(engagement)}.`);
+    const trv=_trendSentence('Views/impressions digital',views,_num(po.c04c));
+    if(trv) facts.push(trv);
+    const tre=_trendSentence('Engagement digital',engagement,_num(po.c04e));
+    if(tre) facts.push(tre);
+    if(_hasVal(obj.c05a)) facts.push(`Tema/pesan utama yang paling banyak digunakan: ${String(obj.c05a).trim()}.`);
+    if(_hasVal(obj.c06e)) facts.push(`Perubahan pengetahuan/sikap/perilaku yang tercatat: ${String(obj.c06e).trim()}.`);
+    if(_hasVal(obj.c10a)) facts.push(`Kendala utama penyebarluasan: ${String(obj.c10a).trim()}.`);
+  }
+  return facts.filter(Boolean);
+}
+function _dynamicNarrative(code,title,st,obj,pattern,findings,exists,r){
+  const facts=_evidenceFacts(r,code);
+  const evidence=facts.slice(0,7).join(' ');
   if(!exists) return {
     anal:`Data ${title} belum tersedia pada Satker ini. Kondisi tersebut membuat capaian pada bagian ini belum dapat dinilai secara utuh.`,
     gap:'Data bagian belum tersedia untuk telaah yang memadai.',
@@ -727,67 +829,68 @@ function _dynamicNarrative(code,title,st,obj,pattern,findings,exists){
   };
   const labels=[...new Set(findings.flatMap(x=>x.labels||[]))].slice(0,4);
   const labelText=labels.length?labels.join(', '):'';
+  const baseEvidence=evidence?` Berdasarkan data yang tersedia, ${evidence}`:'';
   if(st==='MEMENUHI'){
     if(pattern.id===3) return {
-      anal:`Pelaksanaan ${title} menunjukkan kondisi yang memenuhi standar berdasarkan data monitoring yang tersedia. Data pada bagian ini relatif lengkap sehingga penilaian dapat dilakukan secara lebih utuh.`,
+      anal:`Pelaksanaan ${title} menunjukkan kondisi yang memenuhi standar berdasarkan data monitoring yang tersedia. Data pada bagian ini relatif lengkap sehingga penilaian dapat dilakukan secara lebih utuh.${baseEvidence}`,
       gap:'Tidak terdapat kesenjangan prioritas yang teridentifikasi dari data yang tersedia.',
       rekom:`Pertahankan capaian ${title}, jaga konsistensi pelaksanaan, dan terus tingkatkan kualitas serta kelengkapan bukti pendukung.`,
-      basis:'Data monitoring Satker dan standar kegiatan IE 2026.'
+      basis:'Data monitoring Satker, Juknis 2026, dan Surat Pelaksanaan PN T.A. 2026.'
     };
     if(pattern.id===4) return {
-      anal:`Pelaksanaan ${title} secara umum memenuhi standar, namun capaian belum sepenuhnya merata pada seluruh aspek yang terpetakan.`,
+      anal:`Pelaksanaan ${title} secara umum memenuhi standar, namun capaian belum sepenuhnya merata pada seluruh aspek yang terpetakan.${baseEvidence}`,
       gap:labelText?`Aspek yang masih perlu dicermati: ${labelText}.`:'Masih terdapat ruang pengembangan pada sebagian aspek.',
       rekom:labelText?`Pertahankan capaian yang telah memenuhi standar dan lakukan penyempurnaan pada aspek ${labelText}.`:`Pertahankan capaian dan tingkatkan kualitas pada aspek yang masih memiliki ruang pengembangan.`,
-      basis:'Data monitoring Satker dan standar kegiatan IE 2026.'
+      basis:'Data monitoring Satker, Juknis 2026, dan Surat Pelaksanaan PN T.A. 2026.'
     };
     return {
-      anal:`Pelaksanaan ${title} memenuhi standar berdasarkan data monitoring yang tersedia dan tidak menunjukkan kesenjangan prioritas yang terpetakan oleh sistem.`,
+      anal:`Pelaksanaan ${title} memenuhi standar berdasarkan data monitoring yang tersedia dan tidak menunjukkan kesenjangan prioritas yang terpetakan oleh sistem.${baseEvidence}`,
       gap:'Tidak terdapat kesenjangan prioritas yang teridentifikasi dari data yang tersedia.',
       rekom:`Pertahankan capaian ${title} dan tingkatkan kualitas, konsistensi, serta kelengkapan bukti pelaksanaan.`,
-      basis:'Data monitoring Satker dan standar kegiatan IE 2026.'
+      basis:'Data monitoring Satker, Juknis 2026, dan Surat Pelaksanaan PN T.A. 2026.'
     };
   }
   if(st==='PERLU PENGUATAN'){
     const map={
-      6:['SDM dan kompetensi pelaksana', 'penguatan personel, kompetensi, atau pembekalan sesuai aspek yang tercatat'],
-      7:['sarana dan dukungan fasilitas', 'pemenuhan atau penguatan sarana yang tercatat masih diperlukan'],
-      8:['cakupan dan jangkauan pelaksanaan', 'perluasan cakupan/jangkauan sasaran sesuai data monitoring'],
-      9:['kualitas pelaksanaan dan evaluasi', 'peningkatan kualitas pelaksanaan serta penguatan evaluasi/feedback'],
-      10:['dokumentasi dan bukti pelaksanaan', 'kelengkapan bukti dan dokumentasi pelaksanaan'],
-      11:['perencanaan dan dukungan', 'penguatan perencanaan, koordinasi, atau dukungan sesuai kebutuhan yang tercatat'],
-      5:['aspek pelaksanaan yang masih memiliki kesenjangan', 'penguatan pada aspek yang belum memenuhi standar']
+      6:['SDM dan kompetensi pelaksana','penguatan personel, kompetensi, atau pembekalan sesuai aspek yang tercatat'],
+      7:['sarana dan dukungan fasilitas','pemenuhan atau penguatan sarana yang tercatat masih diperlukan'],
+      8:['cakupan dan jangkauan pelaksanaan','perluasan cakupan/jangkauan sasaran sesuai data monitoring'],
+      9:['kualitas pelaksanaan dan evaluasi','peningkatan kualitas pelaksanaan serta penguatan evaluasi/feedback'],
+      10:['dokumentasi dan bukti pelaksanaan','kelengkapan bukti dan dokumentasi pelaksanaan'],
+      11:['perencanaan dan dukungan','penguatan perencanaan, koordinasi, atau dukungan sesuai kebutuhan yang tercatat'],
+      5:['aspek pelaksanaan yang masih memiliki kesenjangan','penguatan pada aspek yang belum memenuhi standar']
     }[pattern.id] || ['aspek pelaksanaan yang masih memiliki kesenjangan','penguatan pada aspek yang belum memenuhi standar'];
     return {
-      anal:`Pelaksanaan ${title} telah berjalan, namun masih terdapat kebutuhan penguatan pada ${map[0]}. ${labelText?`Data yang tersedia menunjukkan perhatian pada: ${labelText}.`:''}`.trim(),
+      anal:`Pelaksanaan ${title} telah berjalan, namun masih terdapat kebutuhan penguatan pada ${map[0]}.${labelText?` Data menunjukkan perhatian pada ${labelText}.`:''}${baseEvidence}`,
       gap:labelText?`Kesenjangan terpetakan pada: ${labelText}.`:'Masih terdapat aspek yang belum sepenuhnya memenuhi standar.',
       rekom:`Prioritaskan ${map[1]} dan lakukan pemantauan terhadap perbaikannya pada periode berikutnya.`,
-      basis:'Data monitoring Satker dan standar kegiatan IE 2026.'
+      basis:'Data monitoring Satker, Juknis 2026, dan Surat Pelaksanaan PN T.A. 2026.'
     };
   }
   const focus=labelText||'aspek yang memiliki kesenjangan terbesar';
   if(pattern.id===12) return {
-    anal:`Terdapat satu kesenjangan utama pada ${title} yang memerlukan perhatian lebih lanjut. Temuan yang terpetakan berkaitan dengan ${focus}.`,
+    anal:`Terdapat satu kesenjangan utama pada ${title} yang memerlukan perhatian lebih lanjut. Temuan yang terpetakan berkaitan dengan ${focus}.${baseEvidence}`,
     gap:`Kesenjangan utama: ${focus}.`,
     rekom:`Jadikan ${focus} sebagai prioritas tindak lanjut dan lakukan verifikasi perbaikannya pada monitoring berikutnya.`,
-    basis:'Data monitoring Satker dan standar kegiatan IE 2026.'
+    basis:'Data monitoring Satker, Juknis 2026, dan Surat Pelaksanaan PN T.A. 2026.'
   };
   if(pattern.id===13) return {
-    anal:`Hasil telaah menunjukkan beberapa aspek pada ${title} memerlukan perhatian secara bersamaan. Kesenjangan terutama terpetakan pada ${focus}.`,
+    anal:`Hasil telaah menunjukkan beberapa aspek pada ${title} memerlukan perhatian secara bersamaan. Kesenjangan terutama terpetakan pada ${focus}.${baseEvidence}`,
     gap:`Beberapa aspek memerlukan intervensi: ${focus}.`,
     rekom:`Lakukan pendampingan terarah dengan memprioritaskan aspek yang memiliki kesenjangan terbesar, kemudian pantau perbaikannya secara berkala.`,
-    basis:'Data monitoring Satker dan standar kegiatan IE 2026.'
+    basis:'Data monitoring Satker, Juknis 2026, dan Surat Pelaksanaan PN T.A. 2026.'
   };
   if(pattern.id===15) return {
-    anal:`Data ${title} menunjukkan kesenjangan yang luas dan/atau belum cukup lengkap untuk mendukung penilaian yang kuat. Kondisi ini memerlukan perhatian dan pendampingan lebih lanjut.`,
+    anal:`Data ${title} menunjukkan kesenjangan yang luas dan/atau belum cukup lengkap untuk mendukung penilaian yang kuat. Kondisi ini memerlukan perhatian dan pendampingan lebih lanjut.${baseEvidence}`,
     gap:`Kesenjangan utama terpetakan pada ${focus}, sementara data pendukung masih terbatas pada sebagian aspek.`,
     rekom:`Tetapkan ${title} sebagai prioritas pendampingan. Fokuskan intervensi pada aspek dengan kesenjangan terbesar dan lengkapi data serta bukti pelaksanaan secara bertahap.`,
-    basis:'Analisis dibatasi pada data monitoring yang tersedia dan tidak mengasumsikan penyebab yang tidak tercatat.'
+    basis:'Analisis dibatasi pada data monitoring yang tersedia, Juknis 2026, dan Surat Pelaksanaan PN T.A. 2026; sistem tidak mengasumsikan penyebab yang tidak tercatat.'
   };
   return {
-    anal:`Pelaksanaan ${title} menunjukkan kesenjangan prioritas terhadap standar yang memerlukan perhatian lebih lanjut, terutama pada ${focus}.`,
+    anal:`Pelaksanaan ${title} menunjukkan kesenjangan prioritas terhadap standar yang memerlukan perhatian lebih lanjut, terutama pada ${focus}.${baseEvidence}`,
     gap:`Kesenjangan prioritas: ${focus}.`,
     rekom:`Prioritaskan tindak lanjut pada ${focus}, lengkapi bukti pendukung, dan lakukan pemantauan perbaikan secara berkala.`,
-    basis:'Data monitoring Satker dan standar kegiatan IE 2026.'
+    basis:'Data monitoring Satker, Juknis 2026, dan Surat Pelaksanaan PN T.A. 2026.'
   };
 }
 function buildSectionAnalysesForRecord(r){
@@ -803,7 +906,7 @@ function buildSectionAnalysesForRecord(r){
     const findings=_findingsForSection(part.code,obj);
     const negativeCount=findings.reduce((n,x)=>n+x.keys.length,0);
     const pattern=_patternForSection(part.code,st,obj,exists,negativeCount,_filledRatio(obj));
-    const text=_dynamicNarrative(part.code,part.title,st,obj,pattern,findings,exists);
+    const text=_dynamicNarrative(part.code,part.title,st,obj,pattern,findings,exists,r);
     return {
       analysis_id:`SECTION-${r.pengisian_id}-${part.code}`,
       pengisian_id:r.pengisian_id,
