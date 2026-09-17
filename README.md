@@ -45,4 +45,4 @@ Screen.
 
 Baseline awal: `v1.0.0`
 
-Revisi monitoring: `v1.0.6` — sinkron dengan revisi Form Satker dan mesin analisis/rekomendasi.
+Revisi monitoring: `v1.0.7` — sinkron dengan revisi Form Satker dan mesin analisis/rekomendasi.
