@@ -1,4 +1,4 @@
-/* Evaluasi Dit IE V2.2 — Professional + Resilient API + GIS */
+/* Evaluasi Dit IE V2.3 — Professional + Resilient API + GIS */
 const GAS_URL='https://script.google.com/macros/s/AKfycbxC4kjW2svVJm7cWa0j4USUevdXXVJyLGsZPfWA3cGLFp24cZqV_dlB8CP2IMLspBy_xQ/exec';
 let key='',data=null,evals=[],standards=[],analyses=[],analysisMap={},gisPoints=[],map=null,mapLayer=null,current=null,filterCard='';
 let editEvalId='', editStdId='';
@@ -13,7 +13,11 @@ const A_LABELS={
  a18:'Bentuk dukungan / proposal',a19:'Dukungan dana atau sarana',a20:'Jumlah kegiatan yang didukung',
  a21:'Nilai dukungan',a22:'Sumber / bentuk dukungan',a23:'Dana hibah pencegahan',a24:'Tahun hibah',
  a25:'Jumlah hibah',a26:'Sumber / penggunaan',a27:'Kendala umum',a28:'Kebutuhan dukungan Dit IE',
- a29:'Prioritas kebutuhan'
+ a29:'Prioritas kebutuhan',
+ a30:'DEKTARI — Kendala',a31:'DEKTARI — Saran/Masukan',
+ a32:'SIPAREL — Kendala',a33:'SIPAREL — Saran/Masukan',
+ a34:'SIDePE — Kendala',a35:'SIDePE — Saran/Masukan',
+ a36:'REAN — Kendala',a37:'REAN — Saran/Masukan'
 };
 const B_LABELS={
  b01a:'Jumlah sekolah sasaran/calon RTS',b01b:'Jumlah sekolah yang sudah melaksanakan RTS',b01c:'Jumlah sekolah yang sudah dinilai kesiapan',
@@ -28,7 +32,7 @@ const B_LABELS={
  b04a:'Jumlah guru pendamping',b04b:'Guru pendamping sudah ditetapkan',b04c:'Jumlah fasilitator remaja',
  b04d:'Fasilitator sesuai kriteria',b04e:'Sudah mendapat pelatihan/pembekalan',b04f:'Catatan personel/gap pembekalan',
  b05a:'Jumlah pelatihan/pembekalan RTS',b05b:'Total peserta pelatihan',b05c:'Pre-test digunakan?',
- b05d:'Post-test digunakan?',b05e:'Data pre-post berpasangan tersedia',b05f:'Ringkasan hasil/perubahan bila tersedia',
+ b05d:'Post-test digunakan?',b05f:'Ringkasan hasil/perubahan bila tersedia',
  b06a:'Jumlah sekolah dengan RTL',b06b:'Jumlah kegiatan yang direncanakan dalam RTL',b06c:'Jumlah kegiatan RTL yang terlaksana',
  b06d:'Jumlah siswa yang dijangkau',b06e:'Jumlah sekolah yang mencapai acuan minimal 30 siswa',b06f:'Catatan capaian/gap pelaksanaan RTL',
  b07a:'Pelaksanaan yang pernah diobservasi',b07b:'Kualitas fasilitator secara umum',b07c:'Kesesuaian materi/metode',
@@ -41,13 +45,9 @@ const C_LABELS={
  c01a:'Jumlah kegiatan',c01b:'Total target peserta',c01c:'Total peserta hadir',c01d:'Kelompok sasaran utama',c01e:'Output/hasil langsung yang paling menonjol',
  c02a:'Jumlah kegiatan kampanye',c02b:'Total sasaran/target',c02c:'Estimasi orang terjangkau',c02d:'Lokasi/wilayah utama',c02e:'Output/hasil langsung',
  c03a:'Jumlah aktivitas/publikasi media',c03b:'Estimasi total reach/audiens',c03c:'Jenis media utama',c03d:'Frekuensi/durasi tayang',c03e:'Output/media yang dihasilkan',
- c04a:'Jumlah konten/publikasi',c04b:'Platform utama',c04c:'Total views/impressions',c04d:'Total reach',c04e:'Total engagement/interaksi',c04f:'Konten/format utama dan catatan statistik',
- c05a:'Tema/pesan utama yang paling banyak digunakan',c05b:'Sumber/fakta tervalidasi',c05c:'Pesan mudah dipahami',c05d:'Tujuan & sasaran jelas',
- c05e:'Non-stigmatisasi',c05f:'CTA bila relevan',c05g:'Aksesibilitas bila relevan',
+ c04a:'Jumlah konten/publikasi',c04b:'Platform utama',c04d:'Total reach',c04f:'Konten/format utama dan catatan statistik',
  c06a:'Kegiatan yang dievaluasi/diambil feedback',c06b:'Jumlah responden',c06c:'Kepuasan (bila diukur)',
  c06d:'Pemahaman (bila diukur)',c06e:'Perubahan pengetahuan/sikap/perilaku',c06f:'Ringkasan feedback/temuan evaluasi',
- c07a:'Ketepatan waktu secara umum',c07b:'Pemanfaatan SDM/sarana',c07c:'Tahapan/peran terlaksana',
- c07d:'Total anggaran rencana (opsional)',c07e:'Total realisasi anggaran (opsional)',c07f:'Ringkasan efektivitas/efisiensi/ekonomis',
  c08a:'Videotron dimiliki/dikelola/digunakan?',c08b:'Frekuensi/durasi/kondisi videotron',
  c08c:'Mobil sosialisasi dimiliki/digunakan?',c08d:'Frekuensi/lokasi/kondisi mobil',c08e:'Media gratis/dukungan eksternal',
  c08f:'Stakeholder/mitra dan bentuk kontribusi',
@@ -608,23 +608,9 @@ function localAnalysisForRecord(r){
     });
   }
 
-  // Digital metrics.
-  const views=n(C.c04c), dreach=n(C.c04d), eng=n(C.c04e);
-  if(views!==null||dreach!==null||eng!==null){
-    const parts=[];
-    if(views!==null)parts.push(`views ${num(views)}`);
-    if(dreach!==null)parts.push(`reach ${num(dreach)}`);
-    if(eng!==null)parts.push(`engagement ${num(eng)}`);
-    out.push({
-      analysis_id:'LOCAL-'+r.pengisian_id+'-DIGITAL',pengisian_id:r.pengisian_id,
-      nama_satker:r.nama_satker,fokus:'Penyebarluasan IE – Performa Digital',
-      analisis:`Data kanal digital yang tersedia menunjukkan ${parts.join(', ')}.`,
-      gap:'Belum ada benchmark eksternal yang digunakan oleh sistem.',
-      dasar_juknis:'Juknis Penyebarluasan Informasi & Edukasi mengarahkan pemantauan performa media/digital berdasarkan metrik yang tersedia.',
-      rekomendasi:'Gunakan metrik kanal secara konsisten dan bandingkan antarperiode bila data historis tersedia.',
-      prioritas:'NORMAL',status:'TERCATAT'
-    });
-  }
+  // C04 tetap dianalisis melalui jumlah konten, platform, total reach, dan catatan konten.
+  // Metrik Total Impressions/Views dan Total Engagement sudah dihapus dari Form Satker,
+  // sehingga mesin monitoring tidak lagi membaca metrik yang sudah dihapus.
 
   // Completeness analysis: always useful even with sparse data.
   const sections=[
@@ -720,9 +706,9 @@ function _patternForSection(code,st,obj,exists,negativeCount,filledRatio){
 function _findingsForSection(code,obj){
   const out=[];
   const groups={
-    A:{sdm:['a3','a4','a5','a6'],sarana:['a7','a8','a9','a10'],dukungan:['a11','a12','a13','a14','a19','a20','a21','a22','a23','a24','a25','a26'],perencanaan:['a15','a16','a17','a18'],kendala:['a27','a28','a29']},
-    B:{cakupan:['b01a','b01b','b01c','b01d','b01e'],sdm:['b03c','b04a','b04b','b04c','b04d','b04e','b04f','b05a','b05b','b05c','b05d','b05e'],sarana:['b02_6','b02_7'],kualitas:['b02_9','b07b','b07c','b08c','b08e'],dukungan:['b02_1','b02_2','b02_3','b02_8','b03a','b03b','b03d','b03e'],bukti:['b07d'],kendala:['b09a','b09b','b09c']},
-    C:{cakupan:['c01a','c01b','c01c','c02a','c02b','c02c','c03a','c03b','c04a','c04c','c04d','c04e'],kualitas:['c05b','c05c','c05d','c05e','c05f','c05g','c06a','c06b','c06c','c06d','c06e','c06f','c07f'],sarana:['c08a','c08b','c08c','c08d'],bukti:['c09a','c09b','c09c','c09d','c09e','c09f','c09g'],dukungan:['c10a','c10b','c10c','c08e','c08f'],perencanaan:['c07a','c07b','c07c','c07d','c07e']}
+    A:{sdm:['a3','a4','a5','a6'],sarana:['a7','a8','a9','a10'],dukungan:['a11','a12','a13','a14','a19','a20','a21','a22','a23','a24','a25','a26'],perencanaan:['a15','a16','a17','a18'],kendala:['a27','a28','a29'],aplikasi:['a30','a32','a34','a36']},
+    B:{cakupan:['b01a','b01b','b01c','b01d','b01e'],sdm:['b03c','b04a','b04b','b04c','b04d','b04e','b04f','b05a','b05b','b05c','b05d'],sarana:['b02_6','b02_7'],kualitas:['b02_9','b07b','b07c','b08c','b08e'],dukungan:['b02_1','b02_2','b02_3','b02_8','b03a','b03b','b03d','b03e'],bukti:['b07d'],kendala:['b09a','b09b','b09c']},
+    C:{cakupan:['c01a','c01b','c01c','c02a','c02b','c02c','c03a','c03b','c04a','c04d'],kualitas:['c06a','c06b','c06c','c06d','c06e','c06f'],sarana:['c08a','c08b','c08c','c08d'],bukti:['c09a','c09b','c09c','c09d','c09e','c09f','c09g'],dukungan:['c10a','c10b','c10c','c08e','c08f']}
   }[code]||{};
   for(const [name,keys] of Object.entries(groups)){
     const neg=_negativeKeys(obj,keys);
@@ -768,6 +754,13 @@ function _evidenceFacts(r,code){
     if(_hasVal(obj.a6)) facts.push(`Kompetensi yang perlu diperkuat: ${String(obj.a6).trim()}.`);
     if(_hasVal(obj.a11)) facts.push(`Dukungan pemangku kepentingan: ${String(obj.a11).trim()}.`);
     if(_hasVal(obj.a27)) facts.push(`Kendala umum yang tercatat: ${String(obj.a27).trim()}.`);
+    const appPairs=[
+      ['DEKTARI','a30','a31'],['SIPAREL','a32','a33'],['SIDePE','a34','a35'],['REAN','a36','a37']
+    ];
+    appPairs.forEach(([name,k,s])=>{
+      if(_hasVal(obj[k])) facts.push(`Kendala ${name}: ${String(obj[k]).trim()}.`);
+      if(_hasVal(obj[s])) facts.push(`Saran/masukan ${name}: ${String(obj[s]).trim()}.`);
+    });
   }
   if(code==='B'){
     const schools=_num(obj.b01a), done=_num(obj.b01b), ready=_num(obj.b01c);
@@ -792,7 +785,7 @@ function _evidenceFacts(r,code){
     const faceTarget=_num(obj.c01b), facePresent=_num(obj.c01c);
     const campTarget=_num(obj.c02b), campReach=_num(obj.c02c);
     const mediaActs=_num(obj.c03a), mediaReach=_num(obj.c03b);
-    const contents=_num(obj.c04a), views=_num(obj.c04c), reach=_num(obj.c04d), engagement=_num(obj.c04e);
+    const contents=_num(obj.c04a), reach=_num(obj.c04d);
     if(faceTarget!==null && facePresent!==null){
       const pct=(facePresent/faceTarget)*100;
       facts.push(`Kegiatan tatap muka mencatat ${num(facePresent)} peserta hadir dari target ${num(faceTarget)} (${pct.toFixed(1).replace('.',',')}%).`);
@@ -805,14 +798,8 @@ function _evidenceFacts(r,code){
     if(mediaActs!==null) facts.push(`Aktivitas/publikasi media tercatat ${num(mediaActs)} kegiatan.`);
     if(mediaReach!==null) facts.push(`Estimasi reach/audiens media tercatat ${num(mediaReach)}.`);
     if(contents!==null) facts.push(`Konten/publikasi digital tercatat ${num(contents)} konten.`);
-    if(views!==null) facts.push(`Total views/impressions tercatat ${num(views)}.`);
     if(reach!==null) facts.push(`Total reach digital tercatat ${num(reach)}.`);
-    if(engagement!==null) facts.push(`Total engagement/interaksi tercatat ${num(engagement)}.`);
-    const trv=_trendSentence('Views/impressions digital',views,_num(po.c04c));
-    if(trv) facts.push(trv);
-    const tre=_trendSentence('Engagement digital',engagement,_num(po.c04e));
-    if(tre) facts.push(tre);
-    if(_hasVal(obj.c05a)) facts.push(`Tema/pesan utama yang paling banyak digunakan: ${String(obj.c05a).trim()}.`);
+    if(_hasVal(obj.c04f)) facts.push(`Catatan konten/format/statistik: ${String(obj.c04f).trim()}.`);
     if(_hasVal(obj.c06e)) facts.push(`Perubahan pengetahuan/sikap/perilaku yang tercatat: ${String(obj.c06e).trim()}.`);
     if(_hasVal(obj.c10a)) facts.push(`Kendala utama penyebarluasan: ${String(obj.c10a).trim()}.`);
   }

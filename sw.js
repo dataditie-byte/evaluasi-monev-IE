@@ -1,4 +1,4 @@
-const CACHE='monitoring-ie-2026-v1.0.0';
+const CACHE='monitoring-ie-2026-v1.0.6';
 const SHELL=['./','./index.html','./evaluasi.html','./app_final.js','./manifest.json','./assets/logo-bnn.webp','./assets/ananda-bersinar.webp','./assets/gedung-bnn.webp','./assets/icons/icon-192.png','./assets/icons/icon-512.png','./assets/icons/apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
